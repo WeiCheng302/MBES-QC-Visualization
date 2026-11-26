@@ -433,6 +433,9 @@ class TerrainViewer(QtWidgets.QMainWindow):
 
         env_box = QtWidgets.QGroupBox("環境")
         env_lay = QtWidgets.QVBoxLayout(env_box)
+        self.pause_chk = QtWidgets.QCheckBox("拖曳／縮放時暫停動畫（較流暢）")
+        self.pause_chk.setChecked(True)
+        env_lay.addWidget(self.pause_chk)
         self.sand_chk = QtWidgets.QCheckBox("砂質海床紋理（鋪滿整個海床，DEM 疊在上面）")
         self.sand_chk.toggled.connect(lambda _on: self._on_sand_toggled())
         env_lay.addWidget(self.sand_chk)
@@ -1327,9 +1330,35 @@ class TerrainViewer(QtWidgets.QMainWindow):
         c, sn = np.cos(ang)[:, None], np.sin(ang)[:, None]
         return (rot["H"] + c * rot["R"] + sn * rot["AxR"] + (1 - c) * rot["AdR"]).astype(np.float32)
 
+    def _camera_moving(self, now):
+        """True while the user is dragging / zooming (camera changed within the last 0.3 s)."""
+        cam = self.plotter.camera
+        state = (tuple(cam.position), tuple(cam.focal_point), tuple(cam.up), cam.parallel_scale)
+        if state != getattr(self, "_anim_cam", None):
+            self._anim_cam = state
+            self._anim_moved_at = now
+        return now - getattr(self, "_anim_moved_at", -1.0) < 0.3
+
+    def _set_wave_mode(self, detailed: bool):
+        """Detailed animated sea when idle; cheap flat sea while the camera is moving."""
+        w = self._waves
+        if w is None or w.get("detailed") == detailed:
+            return
+        w["detailed"] = detailed
+        w["actor"].visibility = detailed
+        w["flat"].visibility = not detailed
+
     def _spin_tick(self):
-        now = time.perf_counter()
-        dt, self._spin_clock = min(now - self._spin_clock, 0.2), now
+        t0 = time.perf_counter()
+        dt, self._spin_clock = min(t0 - self._spin_clock, 0.2), t0
+        animating = (self._rotors is not None and self.spin_chk.isChecked() and self.spin_rpm.value() > 0) \
+            or self._waves is not None
+        if not animating:
+            return
+        pause = self.pause_chk.isChecked() and self._camera_moving(t0)
+        if pause:                                  # leave the frame budget to the mouse; the interactor renders
+            self._set_wave_mode(False)
+            return
         changed = False
         rot = self._rotors
         if rot is not None and self.spin_chk.isChecked() and self.spin_rpm.value() > 0:
@@ -1338,6 +1367,7 @@ class TerrainViewer(QtWidgets.QMainWindow):
             changed = True
         if self._waves is not None:
             try:
+                self._set_wave_mode(True)
                 self._wave_update()
                 changed = True
             except Exception as exc:                                # never let the animation kill the timer
@@ -1345,6 +1375,8 @@ class TerrainViewer(QtWidgets.QMainWindow):
                 self._waves = None
         if changed:
             self.plotter.render()
+        work_ms = (time.perf_counter() - t0) * 1000.0
+        self._spin_timer.setInterval(int(min(250, max(40, 2.0 * work_ms))))   # stay under ~50 % of the UI thread
 
     @staticmethod
     def _sand_rgb(xw, yw, spacing):
@@ -1384,7 +1416,7 @@ class TerrainViewer(QtWidgets.QMainWindow):
         if render:
             self.plotter.render()
 
-    def _add_seabed(self, n=1000):
+    def _add_seabed(self, n=640):
         """Sand-textured plane under the DEM that covers the whole seabed (also where the DEM has no data)."""
         s, mesh = self._sample, self.mesh
         elev = s["elev"][np.isfinite(s["elev"])]
@@ -1567,9 +1599,17 @@ class TerrainViewer(QtWidgets.QMainWindow):
                 self._waves = {"poly": poly, "nx": nx, "ny": ny, "cell": s["cell"], "half": half, "zsea": z,
                                "t0": time.perf_counter()}
                 self._wave_update(force=True)
-                self.env_actors.append(self.plotter.add_mesh(
+                wave_actor = self.plotter.add_mesh(
                     poly, scalars="RGB", rgb=True, opacity=self.water_opacity.value() / 100.0, lighting=False,
-                    reset_camera=False, pickable=False))
+                    reset_camera=False, pickable=False)
+                flat = pv.PolyData(np.array([[cx - half, cy - half, z], [cx + half, cy - half, z],
+                                             [cx + half, cy + half, z], [cx - half, cy + half, z]], np.float32),
+                                   np.array([4, 0, 1, 2, 3]))
+                flat_actor = self.plotter.add_mesh(flat, color="#2a7fae", opacity=self.water_opacity.value() / 100.0,
+                                                   lighting=False, reset_camera=False, pickable=False)
+                flat_actor.visibility = False
+                self._waves.update(actor=wave_actor, flat=flat_actor, detailed=True)
+                self.env_actors += [wave_actor, flat_actor]
                 if render:
                     self.plotter.render()
                 return
