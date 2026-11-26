@@ -1,0 +1,57 @@
+{
+  "_notes": [
+    "高度皆以海平面 (MSL) 為 0。hub_height_m = 輪轂中心離海平面高度。",
+    "sea_level_in_dem_m：海平面在 DEM 高程系統中的數值。DEM 以 LAT 為基準時 = 2.92（海平面 = LAT + 2.92 m）；DEM 以 MSL 為基準時填 0。",
+    "lat_below_msl_m：LAT 在海平面下方的距離；Boat landing 最低點放在 LAT。",
+    "rotor_yaw_deg / boat_landing_azimuth_deg：羅盤方位（北 = 0°，順時針）。所有風機共用。",
+    "修改尺寸後，按檢視器的「重新產生風機模型」才會重做 PLY；你也可以直接用自己的 PLY 取代（公尺、Z 向上、原點在塔中心的 MSL）。"
+  ],
+  "sea_level_in_dem_m": 2.92,
+  "lat_below_msl_m": 2.92,
+  "rotor_yaw_deg": 45.0,
+  "boat_landing_azimuth_deg": 135.0,
+  "blade_azimuth_deg": 0.0,
+  "default_type": "D6",
+  "type_by_name": {
+    "D21": "G4",
+    "D28": "G4"
+  },
+  "types": {
+    "D6": {
+      "label": "Siemens Gamesa D6 (SWT-6.0-154)",
+      "hub_height_m": 105.8,
+      "rotor_diameter_m": 154.0,
+      "hub_radius_m": 2.0,
+      "blade_root_chord_m": 3.4,
+      "blade_max_chord_m": 4.4,
+      "nacelle_length_m": 13.0,
+      "nacelle_width_m": 4.8,
+      "nacelle_height_m": 4.6,
+      "rotor_overhang_m": 6.0,
+      "rotor_tilt_deg": 6.0,
+      "tower_base_dia_m": 6.3,
+      "tower_top_dia_m": 4.2,
+      "tp_dia_m": 7.2,
+      "pile_dia_m": 6.5,
+      "tp_top_m": 20.0
+    },
+    "G4": {
+      "label": "Siemens Gamesa G4 (SWT-4.0-120)",
+      "hub_height_m": 105.8,
+      "rotor_diameter_m": 120.0,
+      "hub_radius_m": 1.5,
+      "blade_root_chord_m": 2.6,
+      "blade_max_chord_m": 3.5,
+      "nacelle_length_m": 12.0,
+      "nacelle_width_m": 4.2,
+      "nacelle_height_m": 4.2,
+      "rotor_overhang_m": 5.2,
+      "rotor_tilt_deg": 6.0,
+      "tower_base_dia_m": 5.4,
+      "tower_top_dia_m": 3.4,
+      "tp_dia_m": 6.4,
+      "pile_dia_m": 5.7,
+      "tp_top_m": 20.0
+    }
+  }
+}
